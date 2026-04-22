@@ -1,28 +1,17 @@
+import asyncio
 import socket
-import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import json
 from datetime import datetime
 from tqdm import tqdm
 
-# ---------------- CLI ----------------
-parser = argparse.ArgumentParser(description="ZeroClick System - Port Scanner")
-parser.add_argument("target")
-parser.add_argument("--start", type=int, default=1)
-parser.add_argument("--end", type=int, default=1024)
-parser.add_argument("--threads", type=int, default=150)
-
-args = parser.parse_args()
-
-target = args.target
-start_port = args.start
-end_port = args.end
-threads = args.threads
+# ---------------- INPUT ----------------
+target = input("Target IP: ")
+start_port = int(input("Start port: "))
+end_port = int(input("End port: "))
 
 results = []
 
-print(f"\nTarget: {target}")
-print(f"Range: {start_port}-{end_port}")
-print(f"Threads: {threads}")
+print(f"\nScanning {target}...")
 print("-" * 60)
 
 # ---------------- SERVICE ----------------
@@ -32,55 +21,74 @@ def get_service(port):
     except:
         return "unknown"
 
-# ---------------- SCAN ----------------
-def scan_port(port):
+# ---------------- BANNER ----------------
+def grab_banner(sock):
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        sock.settimeout(0.2)
+        sock.send(b"HEAD / HTTP/1.0\r\n\r\n")
+        return sock.recv(1024).decode(errors="ignore").strip()
+    except:
+        return ""
+
+# ---------------- ASYNC SCAN ----------------
+async def scan_port(port):
+    loop = asyncio.get_event_loop()
+
+    def check():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(0.3)
 
             if s.connect_ex((target, port)) == 0:
                 service = get_service(port)
+                banner = grab_banner(s)
+                s.close()
 
                 return {
                     "port": port,
-                    "service": service
+                    "service": service,
+                    "banner": banner[:80]
                 }
 
-    except:
-        pass
+            s.close()
+        except:
+            pass
 
-    return None
+        return None
 
-# ---------------- EXECUTION ----------------
-ports = range(start_port, end_port + 1)
+    return await loop.run_in_executor(None, check)
 
-with ThreadPoolExecutor(max_workers=threads) as executor:
-    futures = {executor.submit(scan_port, p): p for p in ports}
+# ---------------- RUN ----------------
+async def run():
+    tasks = [scan_port(p) for p in range(start_port, end_port + 1)]
 
-    for future in tqdm(as_completed(futures),
-                       total=len(futures),
-                       desc="Scanning"):
+    for f in tqdm(asyncio.as_completed(tasks),
+                  total=len(tasks),
+                  desc="Scanning"):
 
-        result = future.result()
+        result = await f
 
         if result:
-            line = f"[OPEN] {result['port']} | {result['service']}"
-            print(line)
+            print(f"[OPEN] {result['port']} | {result['service']}")
             results.append(result)
 
-# ---------------- SAVE REPORT ----------------
+asyncio.run(run())
+
+# ---------------- SAVE REPORTS ----------------
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 txt_file = f"scan_{target}_{timestamp}.txt"
+json_file = f"scan_{target}_{timestamp}.json"
 
 with open(txt_file, "w") as f:
-    f.write(f"ZeroClick System Scan Report\n")
-    f.write(f"Target: {target}\n")
-    f.write(f"Time: {datetime.now()}\n\n")
-
     for r in results:
-        f.write(f"{r['port']} | {r['service']}\n")
+        f.write(f"{r['port']} | {r['service']} | {r['banner']}\n")
 
-print("\nScan completed.")
+with open(json_file, "w") as f:
+    json.dump(results, f, indent=4)
+
+print("\n" + "-" * 60)
+print("Scan completed.")
 print(f"Open ports: {len(results)}")
-print(f"Report saved: {txt_file}")
+print(f"TXT: {txt_file}")
+print(f"JSON: {json_file}")
