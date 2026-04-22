@@ -5,7 +5,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 # ---------------- CLI ----------------
-parser = argparse.ArgumentParser(description="Professional Fast Port Scanner")
+parser = argparse.ArgumentParser(description="ZeroClick System - Port Scanner")
 parser.add_argument("target")
 parser.add_argument("--start", type=int, default=1)
 parser.add_argument("--end", type=int, default=1024)
@@ -35,29 +35,23 @@ def get_service(port):
 # ---------------- SCAN ----------------
 def scan_port(port):
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.25)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.3)
 
-        result = s.connect_ex((target, port))
+            if s.connect_ex((target, port)) == 0:
+                service = get_service(port)
 
-        if result == 0:
-            service = get_service(port)
-
-            s.close()
-
-            return {
-                "port": port,
-                "service": service
-            }
-
-        s.close()
+                return {
+                    "port": port,
+                    "service": service
+                }
 
     except:
         pass
 
     return None
 
-# ---------------- EXECUTION (FASTER CONTROL) ----------------
+# ---------------- EXECUTION ----------------
 ports = range(start_port, end_port + 1)
 
 with ThreadPoolExecutor(max_workers=threads) as executor:
@@ -65,8 +59,7 @@ with ThreadPoolExecutor(max_workers=threads) as executor:
 
     for future in tqdm(as_completed(futures),
                        total=len(futures),
-                       desc="Scanning",
-                       ncols=80):
+                       desc="Scanning"):
 
         result = future.result()
 
@@ -75,19 +68,19 @@ with ThreadPoolExecutor(max_workers=threads) as executor:
             print(line)
             results.append(result)
 
-# ---------------- SAVE RESULTS ----------------
+# ---------------- SAVE REPORT ----------------
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 txt_file = f"scan_{target}_{timestamp}.txt"
 
 with open(txt_file, "w") as f:
-    f.write(f"Scan Report\nTarget: {target}\nTime: {datetime.now()}\n\n")
+    f.write(f"ZeroClick System Scan Report\n")
+    f.write(f"Target: {target}\n")
+    f.write(f"Time: {datetime.now()}\n\n")
 
     for r in results:
         f.write(f"{r['port']} | {r['service']}\n")
 
-# ---------------- SUMMARY ----------------
-print("\n" + "-" * 60)
-print("Scan Completed")
-print(f"Open ports found: {len(results)}")
+print("\nScan completed.")
+print(f"Open ports: {len(results)}")
 print(f"Report saved: {txt_file}")
