@@ -1,16 +1,93 @@
 import socket
+import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from tqdm import tqdm
 
-target = input("Enter target IP: ")
+# ---------------- CLI ----------------
+parser = argparse.ArgumentParser(description="Professional Fast Port Scanner")
+parser.add_argument("target")
+parser.add_argument("--start", type=int, default=1)
+parser.add_argument("--end", type=int, default=1024)
+parser.add_argument("--threads", type=int, default=150)
 
-print(f"\nScanning {target}...\n")
+args = parser.parse_args()
 
-for port in range(1, 1025):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(0.5)
+target = args.target
+start_port = args.start
+end_port = args.end
+threads = args.threads
 
-    result = sock.connect_ex((target, port))
+results = []
 
-    if result == 0:
-        print(f"[OPEN] Port {port}")
+print(f"\nTarget: {target}")
+print(f"Range: {start_port}-{end_port}")
+print(f"Threads: {threads}")
+print("-" * 60)
 
-    sock.close()
+# ---------------- SERVICE ----------------
+def get_service(port):
+    try:
+        return socket.getservbyport(port)
+    except:
+        return "unknown"
+
+# ---------------- SCAN ----------------
+def scan_port(port):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.25)
+
+        result = s.connect_ex((target, port))
+
+        if result == 0:
+            service = get_service(port)
+
+            s.close()
+
+            return {
+                "port": port,
+                "service": service
+            }
+
+        s.close()
+
+    except:
+        pass
+
+    return None
+
+# ---------------- EXECUTION (FASTER CONTROL) ----------------
+ports = range(start_port, end_port + 1)
+
+with ThreadPoolExecutor(max_workers=threads) as executor:
+    futures = {executor.submit(scan_port, p): p for p in ports}
+
+    for future in tqdm(as_completed(futures),
+                       total=len(futures),
+                       desc="Scanning",
+                       ncols=80):
+
+        result = future.result()
+
+        if result:
+            line = f"[OPEN] {result['port']} | {result['service']}"
+            print(line)
+            results.append(result)
+
+# ---------------- SAVE RESULTS ----------------
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+txt_file = f"scan_{target}_{timestamp}.txt"
+
+with open(txt_file, "w") as f:
+    f.write(f"Scan Report\nTarget: {target}\nTime: {datetime.now()}\n\n")
+
+    for r in results:
+        f.write(f"{r['port']} | {r['service']}\n")
+
+# ---------------- SUMMARY ----------------
+print("\n" + "-" * 60)
+print("Scan Completed")
+print(f"Open ports found: {len(results)}")
+print(f"Report saved: {txt_file}")
