@@ -4,6 +4,9 @@ import json
 from datetime import datetime
 from tqdm import tqdm
 
+VERSION = "v2.0"
+
+print(f"ZeroClick System {VERSION}")
 # ---------------- INPUT ----------------
 target = input("Target IP: ")
 start_port = int(input("Start port: "))
@@ -73,7 +76,31 @@ async def run():
             results.append(result)
 
 asyncio.run(run())
-
+html_template = """
+<html>
+<head>
+<title>ZeroClick Scan Report</title>
+<style>
+body { font-family: Arial; background:#111; color:#0f0; }
+table { width:100%; border-collapse: collapse; }
+th, td { border:1px solid #0f0; padding:8px; }
+th { background:#222; }
+</style>
+</head>
+<body>
+<h2>ZeroClick System Report</h2>
+<table>
+<tr><th>Port</th><th>Service</th></tr>
+{% for r in results %}
+<tr>
+<td>{{ r.port }}</td>
+<td>{{ r.service }}</td>
+</tr>
+{% endfor %}
+</table>
+</body>
+</html>
+"""
 # ---------------- SAVE REPORTS ----------------
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
