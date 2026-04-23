@@ -1,12 +1,51 @@
+import time
+import sys
+from colorama import init, Fore, Style
+from tqdm import tqdm
 import asyncio
 import socket
 import json
 from datetime import datetime
 from tqdm import tqdm
 
-VERSION = "v2.0"
+init(autoreset=True)
 
+VERSION = "v2.0"
 print(f"ZeroClick System {VERSION}")
+def banner():
+
+    print(Fore.BLUE + Style.BRIGHT + "\nZEROCLICK SATELLITE CORE")
+    print(Fore.CYAN + "Initializing secure framework environment...\n")
+
+    steps = [
+        ("Core modules", "Loading"),
+        ("Satellite uplink", "Establishing"),
+        ("Encryption layer", "Activating"),
+        ("Scan engine", "Synchronizing"),
+        ("Security context", "Verifying")
+    ]
+
+    for name, action in steps:
+        print(Fore.YELLOW + f"[ * ] {action} {name}...")
+        time.sleep(0.4)
+        print(Fore.GREEN + f"[ OK ] {name} ready")
+
+    print("\n" + Fore.CYAN + "=" * 70)
+
+    print(Fore.BLUE + Style.BRIGHT + "        ZEROCLICK SECURITY FRAMEWORK")
+    print(Fore.CYAN + "=" * 70)
+
+    def line(label, value, color=Fore.WHITE):
+        print(Fore.WHITE + f"  {label:<10}: " + color + value)
+
+    line("STATUS", "ONLINE", Fore.GREEN)
+    line("LINK", "SATELLITE CONNECTED", Fore.GREEN)
+    line("ENGINE", "ZeroClick Core v2", Fore.BLUE)
+    line("SESSION", "ACTIVE", Fore.GREEN)
+    line("VERSION", VERSION, Fore.MAGENTA)
+    line("MODE", "AUTHORIZED SECURITY TESTING", Fore.YELLOW)
+
+    print(Fore.CYAN + "=" * 70 + "\n")
 # ---------------- INPUT ----------------
 target = input("Target IP: ")
 start_port = int(input("Start port: "))
